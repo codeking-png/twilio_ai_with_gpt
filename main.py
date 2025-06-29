@@ -4,11 +4,18 @@ from twilio.twiml.voice_response import VoiceResponse, Gather
 import openai
 import os
 
-# ضع مفتاحك من OpenAI هنا أو استخدم متغير بيئة
+# استخدام مفتاح OpenAI من متغير البيئة
 openai.api_key = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY")
 
 app = FastAPI()
 
+# دعم التحقق من صحة الرابط (HEAD/GET) من Twilio
+@app.get("/call")
+@app.head("/call")
+async def verify_call():
+    return Response(content="OK", media_type="text/plain")
+
+# التعامل مع المكالمات الصوتية POST من Twilio
 @app.post("/call")
 async def handle_call(
     request: Request,
