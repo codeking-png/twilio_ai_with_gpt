@@ -4,18 +4,30 @@ from twilio.twiml.voice_response import VoiceResponse, Gather
 import openai
 import os
 
-# استخدام مفتاح OpenAI من متغير البيئة
-openai.api_key = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY")
+# 🔐 إعداد مفتاح OpenAI
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key or openai.api_key == "YOUR_OPENAI_API_KEY":
+    print("⚠️ تحذير: مفتاح OpenAI غير مفعّل. يرجى تعيين OPENAI_API_KEY في Render.")
 
 app = FastAPI()
 
-# دعم التحقق من صحة الرابط (HEAD/GET) من Twilio
-@app.get("/call")
-@app.head("/call")
-async def verify_call():
-    return Response(content="OK", media_type="text/plain")
+# 🧠 دالة السؤال لـ GPT
+def ask_gpt(prompt: str) -> str:
+    try:
+        print(f"[GPT طلب] >> {prompt}")
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=prompt,
+            max_tokens=100
+        )
+        reply = response.choices[0].text.strip()
+        print(f"[GPT رد] << {reply}")
+        return reply
+    except Exception as e:
+        print(f"❌ خطأ أثناء الاتصال بـ OpenAI: {e}")
+        return "حدث خطأ أثناء محاولة فهمك، يرجى المحاولة لاحقاً."
 
-# التعامل مع المكالمات الصوتية POST من Twilio
+# 📞 نقطة استقبال المكالمات من Twilio
 @app.post("/call")
 async def handle_call(
     request: Request,
@@ -25,8 +37,10 @@ async def handle_call(
 ):
     response = VoiceResponse()
 
+    print(f"📞 مكالمة جديدة من {From} (CallSid: {CallSid})")
+
     if SpeechResult:
-        print(f"[{CallSid}] - المستخدم قال: {SpeechResult}")
+        print(f"🗣️ المستخدم قال: {SpeechResult}")
         gpt_reply = ask_gpt(SpeechResult)
         response.say(gpt_reply, language="ar-SA")
     else:
@@ -36,17 +50,3 @@ async def handle_call(
         response.say("لم أسمع أي شيء، يرجى المحاولة لاحقاً.", language="ar-SA")
 
     return Response(content=str(response), media_type="application/xml")
-
-def ask_gpt(prompt):
-    try:
-        completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "أنت مساعد صوتي ذكي لخدمة العملاء."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return completion.choices[0].message.content.strip()
-    except Exception as e:
-        print("GPT Error:", str(e))
-        return "عذرًا، حدث خطأ أثناء المعالجة. حاول لاحقًا."
