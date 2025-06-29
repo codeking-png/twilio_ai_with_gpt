@@ -1,33 +1,39 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import openai
 import os
 
-# 🔐 إعداد مفتاح OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY")
-if not openai.api_key or openai.api_key == "YOUR_OPENAI_API_KEY":
-    print("⚠️ تحذير: مفتاح OpenAI غير مفعّل. يرجى تعيين OPENAI_API_KEY في Render.")
-
+# إعداد FastAPI
 app = FastAPI()
 
-# 🧠 دالة السؤال لـ GPT
+# مفتاح OpenAI
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# صفحة اختبار GET
+@app.get("/")
+def root():
+    return {"message": "API يعمل بنجاح"}
+
+# نقطة GET مؤقتة لتشخيص /call
+@app.get("/call")
+def get_call():
+    return {"info": "هذه الواجهة تستقبل POST فقط من Twilio."}
+
+# الدالة التي تتواصل مع GPT
 def ask_gpt(prompt: str) -> str:
     try:
-        print(f"[GPT طلب] >> {prompt}")
         response = openai.Completion.create(
             engine="text-davinci-003",
             prompt=prompt,
             max_tokens=100
         )
-        reply = response.choices[0].text.strip()
-        print(f"[GPT رد] << {reply}")
-        return reply
+        return response.choices[0].text.strip()
     except Exception as e:
-        print(f"❌ خطأ أثناء الاتصال بـ OpenAI: {e}")
-        return "حدث خطأ أثناء محاولة فهمك، يرجى المحاولة لاحقاً."
+        print(f"❌ خطأ GPT: {e}")
+        return "حدث خطأ أثناء المعالجة، يرجى المحاولة لاحقاً."
 
-# 📞 نقطة استقبال المكالمات من Twilio
+# نقطة استلام المكالمات من Twilio
 @app.post("/call")
 async def handle_call(
     request: Request,
@@ -36,17 +42,16 @@ async def handle_call(
     CallSid: str = Form(default="")
 ):
     response = VoiceResponse()
-
-    print(f"📞 مكالمة جديدة من {From} (CallSid: {CallSid})")
+    print(f"📞 مكالمة من: {From} - CallSid: {CallSid}")
 
     if SpeechResult:
-        print(f"🗣️ المستخدم قال: {SpeechResult}")
+        print(f"🗣️ قال المتصل: {SpeechResult}")
         gpt_reply = ask_gpt(SpeechResult)
         response.say(gpt_reply, language="ar-SA")
     else:
         gather = Gather(input="speech", action="/call", method="POST", language="ar-SA", timeout=5)
-        gather.say("مرحباً بك، أخبرني كيف يمكنني مساعدتك؟", language="ar-SA")
+        gather.say("مرحباً، كيف يمكنني مساعدتك؟", language="ar-SA")
         response.append(gather)
-        response.say("لم أسمع أي شيء، يرجى المحاولة لاحقاً.", language="ar-SA")
+        response.say("لم أسمع أي شيء، إلى اللقاء.", language="ar-SA")
 
     return Response(content=str(response), media_type="application/xml")
