@@ -1,23 +1,20 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import Response
 from twilio.twiml.voice_response import VoiceResponse, Gather
-from openai import OpenAI
+import openai
 import os
 
-# استخدام مفتاح API من متغير البيئة
-
-client = OpenAI()  # يعتمد على المتغير OPENAI_API_KEY من بيئة Render
-
+# استخدام OpenRouter API
+openai.api_key = os.getenv("OPENROUTER_API_KEY")
+openai.api_base = "https://openrouter.ai/api/v1"
 
 app = FastAPI()
 
-# دعم فحص GET/HEAD من Twilio
 @app.get("/call")
 @app.head("/call")
 async def verify_call():
     return Response(content="OK", media_type="text/plain")
 
-# التعامل مع المكالمات الصوتية
 @app.post("/call")
 async def handle_call(
     request: Request,
@@ -47,11 +44,11 @@ async def handle_call(
     return Response(content=str(response), media_type="application/xml")
 
 def ask_gpt(prompt):
-    chat_completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+    completion = openai.ChatCompletion.create(
+        model="openrouter/mistralai/mistral-7b-instruct",
         messages=[
             {"role": "system", "content": "أنت مساعد صوتي ذكي لخدمة العملاء."},
             {"role": "user", "content": prompt}
         ]
     )
-    return chat_completion.choices[0].message.content.strip()
+    return completion.choices[0].message.content.strip()
