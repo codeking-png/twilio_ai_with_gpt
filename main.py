@@ -1,20 +1,21 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import Response
 from twilio.twiml.voice_response import VoiceResponse, Gather
-import openai
+from openai import OpenAI
 import os
 
-# استخدام OpenRouter API
-openai.api_key = os.getenv("OPENROUTER_API_KEY")
-openai.api_base = "https://openrouter.ai/api/v1"
+# تأكد أن متغير البيئة OPENAI_API_KEY مضاف في منصة Render
+client = OpenAI()  # يستخدم المفتاح من البيئة تلقائيًا
 
 app = FastAPI()
 
+# دعم تحقق GET/HEAD من Twilio
 @app.get("/call")
 @app.head("/call")
 async def verify_call():
     return Response(content="OK", media_type="text/plain")
 
+# نقطة استقبال POST من Twilio للمكالمة الصوتية
 @app.post("/call")
 async def handle_call(
     request: Request,
@@ -35,7 +36,7 @@ async def handle_call(
             print(f"❌ GPT Error: {e}")
             response.say("عذرًا، حدث خطأ أثناء المعالجة. حاول لاحقًا.", language="ar-SA")
     else:
-        print(f"⚠️ لم يتم التقاط أي كلام من المستخدم.")
+        print("⚠️ لم يتم التقاط أي كلام من المستخدم.")
         gather = Gather(input="speech", action="/call", method="POST", language="ar-SA", timeout=5)
         gather.say("مرحباً بك، أخبرني كيف يمكنني مساعدتك؟", language="ar-SA")
         response.append(gather)
@@ -44,11 +45,11 @@ async def handle_call(
     return Response(content=str(response), media_type="application/xml")
 
 def ask_gpt(prompt):
-    completion = openai.ChatCompletion.create(
-        model="openrouter/mistralai/mistral-7b-instruct",
+    chat_completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "أنت مساعد صوتي ذكي لخدمة العملاء."},
             {"role": "user", "content": prompt}
         ]
     )
-    return completion.choices[0].message.content.strip()
+    return chat_completion.choices[0].message.content.strip()
