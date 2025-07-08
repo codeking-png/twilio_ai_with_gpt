@@ -2,10 +2,16 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import Response
 from twilio.twiml.voice_response import VoiceResponse, Gather
 from openai import OpenAI
+from dotenv import load_dotenv
 import os
 
-# تأكد أن متغير البيئة OPENAI_API_KEY مضاف في منصة Render
-client = OpenAI()  # يستخدم المفتاح من البيئة تلقائيًا
+load_dotenv()  # Load environment variables from .env
+
+# إعداد عميل OpenRouter باستخدام base_url والمفتاح
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
 
 app = FastAPI()
 
@@ -44,9 +50,10 @@ async def handle_call(
 
     return Response(content=str(response), media_type="application/xml")
 
+# إرسال الكلام إلى GPT عبر OpenRouter
 def ask_gpt(prompt):
     chat_completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="openrouter/gpt-3.5-turbo",  # يمكنك تغييره إلى gpt-4 أو claude
         messages=[
             {"role": "system", "content": "أنت مساعد صوتي ذكي لخدمة العملاء."},
             {"role": "user", "content": prompt}
