@@ -7,8 +7,8 @@ import os
 # إعداد مفتاح Gemini API
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
-# إنشاء نموذج دردشة من Gemini
-model = genai.GenerativeModel("gemini-pro")
+# إنشاء نموذج دردشة من Gemini (تأكد أن الاسم متاح في مشروعك)
+model = genai.GenerativeModel("models/gemini-1.5-pro")
 
 app = FastAPI()
 
